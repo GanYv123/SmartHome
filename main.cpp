@@ -5,7 +5,7 @@
 int main(int argc, char *argv[])
 {
 
-    /* 兼容高分辨率屏幕 */
+    /* 兼容高分辨率屏幕 */ //zxy commit 1
 #if (QT_VERSION > QT_VERSION_CHECK(5,6,0))
     QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif

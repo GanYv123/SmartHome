@@ -132,6 +132,9 @@ void Dialog::connectSerialPort()
     // 更新按钮状态
     ui->pushButton_connetCOM->setEnabled(false);    // 禁用连接按钮
     ui->pushButton_disconnet->setEnabled(true);  // 启用断开按钮
+    //更新combox属性
+    ui->comboBox_baudRate->setDisabled(true);
+    ui->comboBox_COM->setDisabled(true);
 }
 
 void Dialog::disconnectSerialPort()
@@ -143,6 +146,9 @@ void Dialog::disconnectSerialPort()
         // 更新按钮状态
         ui->pushButton_connetCOM->setEnabled(true);
         ui->pushButton_disconnet->setEnabled(false);
+        //更新combox属性
+        ui->comboBox_baudRate->setDisabled(false);
+        ui->comboBox_COM->setDisabled(false);
     } else {
         QMessageBox::warning(this, "Warning", "No port is currently open.");
     }

@@ -70,7 +70,31 @@ void Dialog::sendMsg(QString &msg)
         QMessageBox::warning(this, "Warning", "串口未打开，请先连接串口");
     }
 }
+void Dialog::sendBinaryData(int data)
+{
+    if (serialPort->isOpen())
+    {
+        // 将整数数据转换为字节数组
+        QByteArray byteArray;
+        QDataStream stream(&byteArray, QIODevice::WriteOnly);
 
+        // 这里可以选择大端或小端，默认为大端
+        stream.setByteOrder(QDataStream::LittleEndian);
+
+        // 写入整数数据到字节流
+        stream << data;
+
+        // 通过串口发送数据
+        qint64 ret = serialPort->write(byteArray);
+        if(ret == -1){
+            QMessageBox::critical(this, "Error", "Failed to send binary data to serial port.");
+        }
+    }
+    else
+    {
+        QMessageBox::warning(this, "Warning", "串口未打开，请先连接串口");
+    }
+}
 
 void Dialog::scanAvailablePorts()
 {
@@ -171,16 +195,30 @@ void Dialog::on_pushButton_disconnet_clicked()
     disconnectSerialPort();
 }
 
-
 void Dialog::on_pushButton_send_clicked()
 {
-    //todo:获取 输入区的 字符 发送
-    if(ui->radioButton->isChecked()){
-        QString msg = ui->textBrowser->toPlainText();
-        sendMsg(msg);
-    }else{
+    // 获取输入区的内容
+    QString input = ui->textBrowser->toPlainText();
 
+    // 检查是否选中了字符发送模式
+    if(ui->radioButton->isChecked()){
+        // 数值发送模式
+        bool ok;
+        // 这里假设你想发送整数，你可以根据需要改成其他类型
+        int number = input.toInt(&ok);
+
+        if(ok) {
+            // 如果转换成功，发送数值数据
+            sendBinaryData(number);
+        } else {
+            QMessageBox::warning(this, "Warning", "输入的内容不是有效的整数");
+        }
+    } else {
+        // 字符发送模式
+        sendMsg(input);
     }
+
+    // 清空输入区
     ui->textBrowser->clear();
 }
 

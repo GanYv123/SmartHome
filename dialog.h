@@ -31,7 +31,8 @@ protected:
     void disconnectSerialPort();
     void initBaudRateComboBox();
 
-    void sendMsg(QString& msg);
+    void sendMsg(QString& msg);             //字符模式 默认utf-8
+    void sendBinaryData(int data);  //数值模式 默认int
 
 private slots:
     void on_pushButton_scan_clicked();

@@ -51,14 +51,17 @@ void Dialog::initBaudRateComboBox()
         baudRateComboBox->addItem(QString::number(rate), rate);  // 显示波特率并存储其值
     }
 
-    // 设置默认选择的波特率，例如115200
-    baudRateComboBox->setCurrentIndex(baudRates.indexOf(115200));
+    // 设置默认选择的波特率，例如9600
+    baudRateComboBox->setCurrentIndex(baudRates.indexOf(9600));
 }
 
 void Dialog::sendMsg(QString &msg)
 {
     if (serialPort->isOpen())
     {
+        // 添加换行符以标记消息结束
+        msg.append("\n");
+
         // 通过串口发送数据
         qint64 ret = serialPort->write(msg.toUtf8());
         if(ret == -1){
@@ -70,6 +73,7 @@ void Dialog::sendMsg(QString &msg)
         QMessageBox::warning(this, "Warning", "串口未打开，请先连接串口");
     }
 }
+
 void Dialog::sendBinaryData(int data)
 {
     if (serialPort->isOpen())
@@ -78,7 +82,7 @@ void Dialog::sendBinaryData(int data)
         QByteArray byteArray;
         QDataStream stream(&byteArray, QIODevice::WriteOnly);
 
-        // 这里可以选择大端或小端，默认为大端
+        //默认为大端
         stream.setByteOrder(QDataStream::LittleEndian);
 
         // 写入整数数据到字节流
@@ -222,24 +226,63 @@ void Dialog::on_pushButton_send_clicked()
     ui->textBrowser->clear();
 }
 
+
+/**
+ * @brief Dialog::handle_readReady
+ * @todo 串口通信是异步的，数据可能会分片到达，因此需要进行缓冲和处理
+ */
 void Dialog::handle_readReady()
 {
     if (serialPort->isOpen()) {
         // 读取串口数据
         QByteArray data = serialPort->readAll();
 
-        QString receivedData;
-        // 将数据转换为字符串
+        // 根据选择的模式处理数据
+        if (ui->radioButton->isChecked()) { // 数值模式
+            // 使用 QDataStream 处理二进制数据
+            static QByteArray buffer; // 使用静态缓冲区以确保接收到的数据是完整的
+            buffer.append(data); // 添加接收到的数据到缓冲区
 
-        receivedData = QString::fromUtf8(data);
+            // 判断是否有足够的数据（例如 4 字节整数）
+            const int INT_SIZE = sizeof(int);
+            while (buffer.size() >= INT_SIZE) {
+                QByteArray intData = buffer.left(INT_SIZE);
+                buffer.remove(0, INT_SIZE); // 移除已处理的部分
 
-        // 在 QTextBrowser 中显示接收到的数据
-        ui->textBrowser_2->append(receivedData);
+                // 使用 QDataStream 读取整数
+                QDataStream stream(intData);
+                stream.setByteOrder(QDataStream::LittleEndian); // 确保字节顺序一致
+                int number;
+                stream >> number;
+
+                // 在 QTextBrowser 中显示接收到的整数数据
+                ui->textBrowser_2->append("Received (Number): " + QString::number(number));
+            }
+        } else if (ui->radioButton_2->isChecked()) { // 字符模式
+            // 处理字符数据
+            static QByteArray charBuffer; // 字符模式的缓冲区
+            charBuffer.append(data); // 添加数据到字符缓冲区
+
+            // 查找换行符，确保每次完整地接收并显示一行数据
+            int endIndex = charBuffer.indexOf('\n');
+            while (endIndex != -1) {
+                QByteArray completeMessage = charBuffer.left(endIndex); // 获取完整消息
+                charBuffer.remove(0, endIndex + 1); // 移除已处理的消息
+
+                // 将数据转换为字符串
+                QString receivedData = QString::fromUtf8(completeMessage.trimmed()); // 移除前后的空白符，包括 \r
+
+                // 在 QTextBrowser 中显示接收到的字符数据
+                ui->textBrowser_2->append("Received (Text): " + receivedData);
+
+                // 继续查找下一个换行符
+                endIndex = charBuffer.indexOf('\n');
+            }
+        }
     } else {
         QMessageBox::warning(this, "Warning", "Serial port is not open.");
     }
 }
-
 
 void Dialog::on_pushButton_ClearRecv_clicked()
 {

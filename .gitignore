@@ -1,4 +1,5 @@
-# C++ objects and libs
+# C++ objects and libraries
+.vs/
 *.slo
 *.lo
 *.o
@@ -9,13 +10,14 @@
 *.so.*
 *.dll
 *.dylib
+*.exe
 
-# Qt-es
+# Qt-specific files
 object_script.*.Release
 object_script.*.Debug
 *_plugin_import.cpp
-/.qmake.cache
-/.qmake.stash
+.qmake.cache
+.qmake.stash
 *.pro.user
 *.pro.user.*
 *.qbs.user
@@ -38,7 +40,7 @@ target_wrapper.*
 # QtCreator
 *.autosave
 
-# QtCreator Qml
+# QtCreator QML
 *.qmlproject.user
 *.qmlproject.user.*
 
@@ -51,6 +53,39 @@ compile_commands.json
 # QtCreator local machine specific files for imported projects
 *creator.user*
 
+# QML cache
 *_qmlcache.qrc
 
-/build
+# Ignore build directories
+build/
+debug/
+release/
+
+# Ignore Visual Studio files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.qtvscr
+
+# Ignore generated UI and moc files
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+
+# Ignore backup files
+*~
+*.swp
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+
+# Ignore IDE or editor-specific files
+.idea/
+.vscode/
+*.iml

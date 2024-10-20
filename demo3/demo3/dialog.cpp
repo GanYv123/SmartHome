@@ -1,11 +1,13 @@
 #include "dialog.h"
 #include "ui_dialog.h"
 #include "OvalShape.h"
+#include <QMessageBox>
 #include <qdebug.h>
 
 Dialog::Dialog(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Dialog)
+    , serialPort(nullptr)
 {
     ui->setupUi(this);
     ui->checkBox->setStyleSheet(
@@ -13,6 +15,11 @@ Dialog::Dialog(QWidget *parent)
         "QCheckBox::indicator:unchecked { background: yellow; border: 1px solid black; }"  // 未选中时的样式
         "QCheckBox::indicator:checked { background: black; }"
         );  // 选中时的样式
+
+    ui->pb_send->setEnabled(false);
+    ui->pb_closeSp->setEnabled(false);
+
+    initCOM();
     InitOvalshape();
     UpdateOvalshapePos();
 }
@@ -144,9 +151,215 @@ void Dialog::toggleShapes(bool enabled) {
     }
 }
 
+//发送内容
 void Dialog::on_pb_send_clicked()
 {
-    toggleShapes(false);
-    qDebug()<<m_shapes.size();
+    //todo:发送内容到下位机
+    int val = ui->spinBox->value();
+    ui->tb_info->append(QString("<DEBUG>Send val:%1").arg(val));
+    sendBinaryData(val);
+}
+
+void Dialog::initCOM()
+{
+    //串口初始化
+    if(serialPort == nullptr)
+        serialPort = new QSerialPort(this);
+    scanAvailablePorts();
+    initBaudRateComboBox();
+     connect(this->serialPort, &QSerialPort::readyRead, this, &Dialog::handle_readReady);
+}
+
+void Dialog::scanAvailablePorts()
+{
+    ui->comboBox_COM_2->clear();
+    // 获取所有可用串口
+    const auto serialPortInfos = QSerialPortInfo::availablePorts();
+    // 遍历可用串口
+    for (const QSerialPortInfo &serialPortInfo : serialPortInfos) {
+        // 将串口名称添加到下拉选择框中
+        ui->comboBox_COM_2->addItem(serialPortInfo.portName());
+    }
+    // 如果没有可用串口，提示用户
+    if (serialPortInfos.isEmpty()) {
+        ui->comboBox_COM_2->addItem("No available ports");
+    }
+
+    ui->tb_info->append(QString("<INFO>扫描到 %1 个串口").arg(serialPortInfos.size()));
+}
+
+void Dialog::connectSerialPort()
+{
+    // 确保串口未打开
+    if (serialPort->isOpen()) {
+        QMessageBox::warning(this, "Warning", "端口已打开");
+        serialPort->close();
+        return;
+    }
+
+    // 获取用户选择的串口
+    QString selectedPort = ui->comboBox_COM_2->currentText();
+
+    if (selectedPort.isEmpty() || selectedPort == "No available ports") {
+        QMessageBox::warning(this, "Error", "No valid COM port selected");
+        return;
+    }
+    // 获取用户选择的波特率
+    int baudRate = ui->comboBox_baudRate_2->currentText().toInt(); // 从下拉框中获取波特率
+    // 配置串口
+    serialPort->setPortName(selectedPort);
+    serialPort->setBaudRate(baudRate);  // 选择合适的波特率
+    // serialPort->setDataBits(QSerialPort::Data8);     // 数据位
+    // serialPort->setParity(QSerialPort::NoParity);    // 校验位
+    // serialPort->setStopBits(QSerialPort::OneStop);   // 停止位
+    // serialPort->setFlowControl(QSerialPort::NoFlowControl); // 流控制
+    /**
+     *  数据位（Data Bits）：默认是 QSerialPort::Data8（8个数据位）。
+        校验位（Parity）：默认是 QSerialPort::NoParity（无校验）。
+        停止位（Stop Bits）：默认是 QSerialPort::OneStop（1个停止位）。
+        流控制（Flow Control）：默认是 QSerialPort::NoFlowControl（无流控制）
+    */
+
+    // 打开串口
+    if (!serialPort->open(QIODevice::ReadWrite)) {
+        QMessageBox::critical(this, "Error", "Failed to open port!");
+        return;
+    }
+
+    QMessageBox::information(this, "Success", "Port opened successfully!");
+
+    // 更新按钮状态
+    ui->pb_openSp->setEnabled(false);
+    ui->pb_send->setEnabled(true);
+    ui->pb_closeSp->setEnabled(true);
+
+    //更新combox属性
+    ui->comboBox_baudRate_2->setDisabled(true);
+    ui->comboBox_COM_2->setDisabled(true);
+}
+
+void Dialog::disconnectSerialPort()
+{
+    if (serialPort->isOpen()) {
+        serialPort->close();  // 关闭串口
+        QMessageBox::information(this, "Success", "Port disconnected successfully!");
+
+        // 更新按钮状态
+        ui->pb_send->setEnabled(false);
+        ui->pb_closeSp->setEnabled(false);
+        ui->pb_openSp->setEnabled(true);
+        //更新combox属性
+        ui->comboBox_baudRate_2->setDisabled(false);
+        ui->comboBox_COM_2->setDisabled(false);
+    } else {
+        QMessageBox::warning(this, "Warning", "No port is currently open.");
+    }
+}
+
+void Dialog::initBaudRateComboBox()
+{
+    // 获取下拉框对象
+    QComboBox* baudRateComboBox = ui->comboBox_baudRate_2;
+
+    // 清空之前的内容
+    baudRateComboBox->clear();
+
+    // 添加常用波特率
+    QList<int> baudRates = {9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
+
+    for (int rate : baudRates) {
+        baudRateComboBox->addItem(QString::number(rate), rate);  // 显示波特率并存储其值
+    }
+
+    // 设置默认选择的波特率，例如9600
+    baudRateComboBox->setCurrentIndex(baudRates.indexOf(9600));
+}
+
+void Dialog::sendBinaryData(int data)
+{
+    if (serialPort->isOpen())
+    {
+        // 将整数数据转换为字节数组
+        QByteArray byteArray;
+        QDataStream stream(&byteArray, QIODevice::WriteOnly);
+
+        //默认为大端
+        stream.setByteOrder(QDataStream::LittleEndian);
+
+        // 写入整数数据到字节流
+        stream << data;
+
+        // 通过串口发送数据
+        qint64 ret = serialPort->write(byteArray);
+        ui->tb_info->append(QString("<DEBUG> write ret:%1").arg(ret));
+        if(ret == -1){
+            QMessageBox::critical(this, "Error", "Failed to send binary data to serial port.");
+        }
+    }
+    else
+    {
+        QMessageBox::warning(this, "Warning", "串口未打开，请先连接串口");
+    }
+}
+
+/**
+ * @brief Dialog::handle_readReady
+ * @todo 串口通信是异步的，数据可能会分片到达，因此需要进行缓冲和处理
+ */
+void Dialog::handle_readReady()
+{
+    if (serialPort->isOpen()) {
+        // 读取串口数据
+        QByteArray data = serialPort->readAll();
+        // 使用 QDataStream 处理二进制数据
+        static QByteArray buffer; // 使用静态缓冲区以确保接收到的数据是完整的
+        buffer.append(data); // 添加接收到的数据到缓冲区
+
+        // 判断是否有足够的数据（例如 4 字节整数）
+        const int INT_SIZE = sizeof(int);
+
+        while (buffer.size() >= INT_SIZE)
+        {
+            QByteArray intData = buffer.left(INT_SIZE);
+            buffer.remove(0, INT_SIZE); // 移除已处理的部分
+
+            // 使用 QDataStream 读取整数
+            QDataStream stream(intData);
+            stream.setByteOrder(QDataStream::LittleEndian); // 确保字节顺序一致
+            int number;
+            stream >> number;
+            // 在 QTextBrowser 中显示接收到的整数数据
+            ui->tb_info->append("Received <INFO>: " + QString::number(number));
+        }
+
+
+    } else {
+        QMessageBox::warning(this, "Warning", "Serial port is not open.");
+    }
+}
+
+
+//连接串口
+void Dialog::on_pb_openSp_clicked()
+{
+    connectSerialPort();
+}
+
+//断开连接
+void Dialog::on_pb_closeSp_clicked()
+{
+    disconnectSerialPort();
+}
+
+//扫描串口
+void Dialog::on_pb_scan_clicked()
+{
+    scanAvailablePorts();
+}
+
+//清空日志
+void Dialog::on_pb_ClearRecv_2_clicked()
+{
+    ui->tb_info->clear();
 }
 

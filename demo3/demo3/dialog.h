@@ -36,6 +36,12 @@ protected:
 private slots:
     void on_pb_send_clicked();
 
+    void on_pb_openSp_clicked();
+
+    void on_pb_closeSp_clicked();
+
+    void on_pb_scan_clicked();
+
 private:
     Ui::Dialog *ui;
     QList<QRect> m_lstLabelpos;
@@ -50,9 +56,18 @@ private:
 
 protected:
     void initCOM();
-    void sendMsg(QString& msg);             //字符模式 默认utf-8
+    void scanAvailablePorts();
+    void connectSerialPort();
+    void disconnectSerialPort();
+    void initBaudRateComboBox();
+
+    //void sendMsg(QString& msg);             //字符模式 默认utf-8
     void sendBinaryData(int data);  //数值模式 默认int
 
+private slots:
+    void handle_readReady();
+
+    void on_pb_ClearRecv_2_clicked();
 };
 
 #endif // DIALOG_H

@@ -2,6 +2,12 @@
 #define DIALOG_H
 
 #include <QDialog>
+#include <qlist.h>
+#include "ovalshape.h"  // 确保包含 OvalShape 的定义
+#include <QTimer>
+#include <QSerialPort>
+#include <QSerialPortInfo>
+#include <QByteArray>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -14,10 +20,39 @@ class Dialog : public QDialog
     Q_OBJECT
 
 public:
-    Dialog(QWidget *parent = nullptr);
+    explicit Dialog(QWidget *parent = nullptr);
     ~Dialog();
+
+    void UpdateOvalshapePos();
+    void InitOvalshape();
+    //熄灭流水灯 true{打开} false{熄灭}
+    void toggleShapes(bool enabled);
+protected:
+    void setM1Shape();
+    void setM2Shape();
+    int m_currentM1Index; // 当前点亮的 M1 圆形索引
+    int m_currentM2Index; // 当前点亮的 M2 圆形索引
+
+private slots:
+    void on_pb_send_clicked();
 
 private:
     Ui::Dialog *ui;
+    QList<QRect> m_lstLabelpos;
+    QList<OvalShape*> m_ovalShapes;
+
+    QList<OvalShape*> m_shapes; //温湿度等级
+    QList<OvalShape*> m_M1_shapes; // M1 组
+    QList<OvalShape*> m_M2_shapes; // M2 组
+    QSerialPort* serialPort; //串口
+    //控制流水灯的定时器
+    QTimer* m_timer_M1M2;
+
+protected:
+    void initCOM();
+    void sendMsg(QString& msg);             //字符模式 默认utf-8
+    void sendBinaryData(int data);  //数值模式 默认int
+
 };
+
 #endif // DIALOG_H

@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui serialport
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -11,11 +11,13 @@ CONFIG += c++17
 SOURCES += \
     easylogging++.cc \
     main.cpp \
-    dialog.cpp
+    dialog.cpp \
+    ovalshape.cpp
 
 HEADERS += \
     dialog.h \
-    easylogging++.h
+    easylogging++.h \
+    ovalshape.h
 
 FORMS += \
     dialog.ui

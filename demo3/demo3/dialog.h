@@ -70,4 +70,10 @@ private slots:
     void on_pb_ClearRecv_2_clicked();
 };
 
+// 定义宏，接受一个字符串作为输入
+#define TRACEINFO_NO_ARG(message) \
+ui->tb_info->append(QString("<INFO> %1").arg(message))
+
+
+
 #endif // DIALOG_H

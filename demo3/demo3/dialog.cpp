@@ -138,6 +138,8 @@ void Dialog::InitOvalshape()
         setM2Shape(); // 更新 M2 形状状态
     });
     m_timer_M1M2->start(500); // 每 500 毫秒更新一次
+
+    TRACEINFO_NO_ARG("完成图形初始化");
 }
 
 void Dialog::toggleShapes(bool enabled) {
@@ -251,6 +253,7 @@ void Dialog::disconnectSerialPort()
         //更新combox属性
         ui->comboBox_baudRate_2->setDisabled(false);
         ui->comboBox_COM_2->setDisabled(false);
+        TRACEINFO_NO_ARG("关闭串口成功！");
     } else {
         QMessageBox::warning(this, "Warning", "No port is currently open.");
     }
@@ -292,6 +295,7 @@ void Dialog::sendBinaryData(int data)
         // 通过串口发送数据
         qint64 ret = serialPort->write(byteArray);
         ui->tb_info->append(QString("<DEBUG> write ret:%1").arg(ret));
+        TRACEINFO_NO_ARG("发送数据成功！");
         if(ret == -1){
             QMessageBox::critical(this, "Error", "Failed to send binary data to serial port.");
         }
@@ -331,7 +335,6 @@ void Dialog::handle_readReady()
             // 在 QTextBrowser 中显示接收到的整数数据
             ui->tb_info->append("Received <INFO>: " + QString::number(number));
         }
-
 
     } else {
         QMessageBox::warning(this, "Warning", "Serial port is not open.");

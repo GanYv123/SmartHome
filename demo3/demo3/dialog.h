@@ -26,7 +26,7 @@ public:
     void UpdateOvalshapePos();
     void InitOvalshape();
     //熄灭流水灯 true{打开} false{熄灭}
-    void toggleShapes(bool enabled);
+    void toggleShapes(bool enabled,int index);
 protected:
     void setM1Shape();
     void setM2Shape();
@@ -52,7 +52,8 @@ private:
     QList<OvalShape*> m_M2_shapes; // M2 组
     QSerialPort* serialPort; //串口
     //控制流水灯的定时器
-    QTimer* m_timer_M1M2;
+    QTimer* m_timer_M1;
+    QTimer* m_timer_M2;
 
 protected:
     void initCOM();
@@ -63,11 +64,23 @@ protected:
 
     //void sendMsg(QString& msg);             //字符模式 默认utf-8
     void sendBinaryData(int data);  //数值模式 默认int
+    void func(QDataStream data);
+    void setLevel(int level);
+    void setLight(bool isOpen = true);
+
+    void SW1_setEnable(bool enable = true);
+    void SW2_setEnable(bool enable = true);
 
 private slots:
     void handle_readReady();
-
     void on_pb_ClearRecv_2_clicked();
+
+
+private:
+    QByteArray receivedData; // 用于存储接收到的数据
+    int highDigit;
+    int lowDigit;
+
 };
 
 // 定义宏，接受一个字符串作为输入

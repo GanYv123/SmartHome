@@ -22,6 +22,9 @@ Dialog::Dialog(QWidget *parent)
     initCOM();
     InitOvalshape();
     UpdateOvalshapePos();
+
+    SW1_setEnable(false);
+    SW2_setEnable(false);
 }
 
 Dialog::~Dialog()
@@ -44,7 +47,7 @@ void Dialog::setM1Shape() {
 void Dialog::setM2Shape() {
     for (int i = 8; i < 12; ++i) { // M2 从索引 8 到 11
         if (i == m_currentM2Index + 8) { // 加 8 因为 M2 从 m_shapes[8] 开始
-            m_shapes[i]->setColor(Qt::green); // 点亮
+            m_shapes[i]->setColor(Qt::darkGreen); // 点亮
         } else {
             m_shapes[i]->setColor(Qt::white); // 熄灭
         }
@@ -132,24 +135,41 @@ void Dialog::InitOvalshape()
     }
 
     // 设置定时器
-    m_timer_M1M2 = new QTimer(this);
-    connect(m_timer_M1M2, &QTimer::timeout, this, [=]() {
+    m_timer_M1 = new QTimer(this);
+    connect(m_timer_M1, &QTimer::timeout, this, [=]() {
         setM1Shape(); // 更新 M1 形状状态
+    });
+    m_timer_M1->start(500); // 每 500 毫秒更新一次
+
+    m_timer_M2 = new QTimer(this);
+    connect(m_timer_M2, &QTimer::timeout, this, [=]() {
         setM2Shape(); // 更新 M2 形状状态
     });
-    m_timer_M1M2->start(500); // 每 500 毫秒更新一次
+    m_timer_M2->start(500); // 每 500 毫秒更新一次
 
     TRACEINFO_NO_ARG("完成图形初始化");
 }
 
-void Dialog::toggleShapes(bool enabled) {
-    if (enabled) {
-        m_timer_M1M2->start(500); // 启动定时器
+void Dialog::toggleShapes(bool enabled,int index) {
+    if (enabled && (index>=1 && index<=2)) {
+        if(index == 1)
+            m_timer_M1->start(500); // 启动定时器
+        else if(index == 2)
+            m_timer_M2->start(500);
     } else {
-        m_timer_M1M2->stop(); // 停止定时器
-        for (int i = 4; i <11; ++i) {
-            m_shapes[i]->setColor(Qt::white); // 熄灭所有
+        if(index == 1){
+            m_timer_M1->stop(); // 停止定时器
+            for (int i = 4; i <8; ++i) {
+                m_shapes[i]->setColor(Qt::white); // 熄灭所有
+            }
         }
+        else if(index == 2){
+            m_timer_M2->stop(); // 停止定时器
+            for (int i = 8; i <12; ++i) {
+                m_shapes[i]->setColor(Qt::white); // 熄灭所有
+            }
+        }
+
     }
 }
 
@@ -282,20 +302,19 @@ void Dialog::sendBinaryData(int data)
 {
     if (serialPort->isOpen())
     {
-        // 将整数数据转换为字节数组
+        // 将整数转换为一个字节
         QByteArray byteArray;
-        QDataStream stream(&byteArray, QIODevice::WriteOnly);
+        byteArray.append(static_cast<char>(data & 0xFF));  // 只取低字节发送
 
-        //默认为大端
-        stream.setByteOrder(QDataStream::LittleEndian);
-
-        // 写入整数数据到字节流
-        stream << data;
-
-        // 通过串口发送数据
+        // 通过串口发送字节
         qint64 ret = serialPort->write(byteArray);
+
+        // 调试信息输出，显示为16进制格式
+        ui->tb_info->append(QString("<DEBUG> Sent data in hex: %1").arg(QString(byteArray.toHex(' ')))); // 输出16进制
         ui->tb_info->append(QString("<DEBUG> write ret:%1").arg(ret));
         TRACEINFO_NO_ARG("发送数据成功！");
+
+        // 检查写入结果
         if(ret == -1){
             QMessageBox::critical(this, "Error", "Failed to send binary data to serial port.");
         }
@@ -306,6 +325,48 @@ void Dialog::sendBinaryData(int data)
     }
 }
 
+void Dialog::func(QDataStream data)
+{
+
+}
+
+void Dialog::setLevel(int level)
+{
+    if(!(level >=1 && level <= 4))
+    {
+        TRACEINFO_NO_ARG("错误的等级数值");
+        return;
+    }
+    for (int i = 0; i <4; ++i) {
+        m_shapes[i]->setColor(Qt::white); // 熄灭所有
+    }
+    for (int i = 0; i <level; ++i) {
+        m_shapes[i]->setColor(Qt::yellow);
+    }
+}
+
+void Dialog::setLight(bool isOpen)
+{
+    if(isOpen){
+        ui->checkBox->setChecked(true);
+        SW1_setEnable(true);
+    }else{
+        ui->checkBox->setChecked(false);
+        SW1_setEnable(false);
+    }
+}
+
+void Dialog::SW1_setEnable(bool enable)
+{
+    toggleShapes(enable,1);
+}
+
+void Dialog::SW2_setEnable(bool enable)
+{
+    toggleShapes(enable,2);
+}
+
+
 /**
  * @brief Dialog::handle_readReady
  * @todo 串口通信是异步的，数据可能会分片到达，因此需要进行缓冲和处理
@@ -315,31 +376,50 @@ void Dialog::handle_readReady()
     if (serialPort->isOpen()) {
         // 读取串口数据
         QByteArray data = serialPort->readAll();
-        // 使用 QDataStream 处理二进制数据
-        static QByteArray buffer; // 使用静态缓冲区以确保接收到的数据是完整的
+
+        // 使用静态缓冲区来确保接收到的数据是完整的
+        static QByteArray buffer;
         buffer.append(data); // 添加接收到的数据到缓冲区
 
-        // 判断是否有足够的数据（例如 4 字节整数）
-        const int INT_SIZE = sizeof(int);
+        // 判断是否有足够的数据（例如 1 字节）
+        const int BYTE_SIZE = 1;
 
-        while (buffer.size() >= INT_SIZE)
+        while (buffer.size() >= BYTE_SIZE)
         {
-            QByteArray intData = buffer.left(INT_SIZE);
-            buffer.remove(0, INT_SIZE); // 移除已处理的部分
+            // 提取1字节的数据
+            QByteArray byteData = buffer.left(BYTE_SIZE);
+            buffer.remove(0, BYTE_SIZE); // 移除已处理的部分
 
-            // 使用 QDataStream 读取整数
-            QDataStream stream(intData);
-            stream.setByteOrder(QDataStream::LittleEndian); // 确保字节顺序一致
-            int number;
-            stream >> number;
-            // 在 QTextBrowser 中显示接收到的整数数据
-            ui->tb_info->append("Received <INFO>: " + QString::number(number));
+            // 将字节转换为十六进制字符串并打印
+            QString hexData = byteData.toHex().toUpper(); // 转为大写的十六进制
+            ui->tb_info->append("Received <INFO>: 0x" + hexData);
+
+            // 将接收到的数据存储到全局变量中
+            receivedData.append(byteData);
+            // 解析最后接收到的字节
+            quint8 lastByte = static_cast<quint8>(byteData[0]);
+
+            // 拆分为两位
+            highDigit = (lastByte >> 4) & 0x0F; // 获取高四位（0-15）
+            lowDigit = lastByte & 0x0F;          // 获取低四位（0-15）
+            // 输出拆分结果
+            //ui->tb_info->append(QString("High digit: %1, Low digit: %2").arg(highDigit).arg(lowDigit));
+            // 根据字节值执行不同的函数
+            setLevel(lowDigit); // 传递低位值
+            highDigit == 1 ? setLight(false) : setLight(true);
+
+            if(lowDigit >= ui->spinBox->value())
+                SW2_setEnable(true);
+            else
+                SW2_setEnable(false);
         }
-
-    } else {
+    }
+    else
+    {
         QMessageBox::warning(this, "Warning", "Serial port is not open.");
     }
 }
+
 
 
 //连接串口

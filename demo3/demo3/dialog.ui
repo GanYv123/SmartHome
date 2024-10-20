@@ -153,6 +153,9 @@
    </property>
   </widget>
   <widget class="QCheckBox" name="checkBox">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>290</x>
@@ -175,6 +178,9 @@
    </property>
    <property name="text">
     <string/>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
    </property>
    <property name="tristate">
     <bool>false</bool>
@@ -332,7 +338,7 @@
       <item>
        <widget class="QGroupBox" name="groupBox_6">
         <property name="title">
-         <string>COM口选择：</string>
+         <string>COM：</string>
         </property>
         <layout class="QFormLayout" name="formLayout_3">
          <item row="0" column="0">
